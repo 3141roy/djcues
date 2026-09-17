@@ -396,15 +396,22 @@ class CueStrategy:
             if slot.memory_offset_bars == 0:
                 mem_pos = pos_ms
             else:
-                mem_pos = pos_ms - bg.bars_to_ms(self.memory_offset_bars)
+                # Prefer the full offset; if the event is too early, step down
+                # by halves (16 -> 8 -> 4 bars) so the warning stays phrase-aligned.
                 first_beat_ms = bg.beat_to_ms(1)
-                if mem_pos < first_beat_ms:
+                offset = self.memory_offset_bars
+                while offset >= 1 and pos_ms - bg.bars_to_ms(offset) < first_beat_ms:
+                    offset //= 2
+                if offset < 1:
                     mem_pos = first_beat_ms
                 else:
+                    mem_pos = pos_ms - bg.bars_to_ms(offset)
                     # Snap to nearest downbeat (bar start)
                     mem_beat = bg.ms_to_beat(mem_pos)
                     bar_beat = ((mem_beat - 1) // 4) * 4 + 1
                     mem_pos = bg.beat_to_ms(bar_beat)
+                    if offset != self.memory_offset_bars:
+                        notes.append(f"{pad} memory: only {offset} bars before event")
 
             mem_loop_end = None
             if slot.is_loop:

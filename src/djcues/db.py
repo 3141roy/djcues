@@ -5,12 +5,25 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from construct import Int32ub
 from pyrekordbox import Rekordbox6Database
+from pyrekordbox.anlz import structs as _anlz_structs
 
 from djcues.constants import resolve_phrase_label
 from djcues.models import BeatGrid, CuePoint, Phrase, Track, WaveformPoint
 
 logger = logging.getLogger(__name__)
+
+
+def _relax_pqt2_version() -> None:
+    """rekordbox 7 writes 0x02000002 in the PQT2 header; pyrekordbox 0.4.4 asserts
+    0x01000002 and the whole .EXT file (PSSI, PWV5) fails to parse."""
+    i = next(i for i, s in enumerate(_anlz_structs.PQT2.subcons) if s.name == "u1")
+    _anlz_structs.PQT2.subcons[i] = "u1" / Int32ub
+    _anlz_structs.PQT2._subcons["u1"] = _anlz_structs.PQT2.subcons[i]
+
+
+_relax_pqt2_version()
 
 _db: Rekordbox6Database | None = None
 
