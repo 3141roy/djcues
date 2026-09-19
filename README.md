@@ -24,20 +24,18 @@ djcues <command>
 
 ## Cue System
 
-djcues uses a standardized 8 hot cue + 8 memory cue system defined in `cue-system.csv`:
+djcues uses a standardized 6 hot cue + 6 memory cue system defined in `cue-system.csv`:
 
-| Pad | Hot Cue         | Color  | Memory Cue       |
-|-----|-----------------|--------|-------------------|
-| A   | First Beat      | Green  | First Beat        |
-| B   | Loop In         | Green  | Loop In           |
-| C   | Vocal / Buildup | Yellow | Before Buildup    |
-| D   | Drop            | Red    | Before Drop       |
-| E   | Breakdown       | Blue   | Before Breakdown  |
-| F   | Special         | Purple | Before Special    |
-| G   | Outro           | Cyan   | Before Outro      |
-| H   | Loop Out        | Orange | Loop Out          |
+| Pad | Hot Cue              | Color  | Memory Cue            |
+|-----|----------------------|--------|------------------------|
+| A   | First Beat           | Green  | First Beat             |
+| B   | 32 Bars Before Drop  | Green  | 32 Bars Before Drop    |
+| C   | 16 Bars Before Drop  | Yellow | 16 Bars Before Drop    |
+| D   | Drop                 | Red    | Before Drop            |
+| E   | Breakdown            | Blue   | Before Breakdown       |
+| F   | Outro                | Cyan   | Before Outro           |
 
-Memory cues 3-7 are placed a configurable number of bars before their corresponding hot cue (default: 16 bars). Memory cues 1, 2, and 8 share the same position as their hot cue. Colors are standardized per slot.
+Memory cues D-F are placed a configurable number of bars before their corresponding hot cue (default: 16 bars). Memory cues A-C share the same position as their hot cue, since B and C are themselves lead-in markers. Colors are standardized per slot.
 
 To customize the cue system, edit `cue-system.csv` and update the `CUE_SYSTEM` definition in `src/djcues/constants.py`.
 
@@ -91,7 +89,7 @@ djcues compare "Processed" --all
 
 1. **Phrase analysis (PSSI)**: rekordbox analyzes tracks into phrases (Intro, Up, Down, Chorus, Outro). djcues maps these to cue slots using heuristics — e.g., Drop aligns with the first Chorus after 20% of the track.
 
-2. **Vocal detection (PVDI)**: rekordbox's vocal detection data (stored in `.2EX` ANLZ files) provides per-frame vocal confidence. djcues uses the first strong vocal onset to place the Vocal/Buildup cue.
+2. **Vocal detection (PVDI)**: rekordbox's vocal detection data (stored in `.2EX` ANLZ files) provides per-frame vocal confidence, rendered as a strip in the HTML visualizer for reference.
 
 3. **Waveform (PWV5)**: The color waveform detail data is extracted and rendered in the HTML visualizer for visual reference.
 

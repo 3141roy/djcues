@@ -38,7 +38,7 @@ def _make_hot_cues(statuses: dict[str, str] | None = None) -> dict:
     if statuses is None:
         statuses = {}
     cues: dict[str, dict] = {}
-    for pad in "ABCDEFGH":
+    for pad in "ABCDEF":
         slot = CUE_SYSTEM_BY_PAD[pad]
         entry: dict = {
             "status": statuses.get(pad, "accepted"),
@@ -53,11 +53,11 @@ def _make_hot_cues(statuses: dict[str, str] | None = None) -> dict:
 
 
 def _make_memory_cues(statuses: dict[str, str] | None = None) -> dict:
-    """Build a memory cues dict keyed by slot number string '1'-'8'."""
+    """Build a memory cues dict keyed by slot number string '1'-'6'."""
     if statuses is None:
         statuses = {}
     cues: dict[str, dict] = {}
-    for i in range(8):
+    for i in range(6):
         slot_num = str(i + 1)
         slot = CUE_SYSTEM[i]
         entry: dict = {
@@ -85,8 +85,8 @@ def test_build_cue_rows_creates_hot_and_memory():
 
     hot_rows, mem_rows = build_cue_rows(hot_cues, memory_cues)
 
-    assert len(hot_rows) == 8
-    assert len(mem_rows) == 8
+    assert len(hot_rows) == 6
+    assert len(mem_rows) == 6
 
     # Verify hot cue fields
     for row in hot_rows:
@@ -113,14 +113,14 @@ def test_build_cue_rows_creates_hot_and_memory():
     assert hot_a["OutMpegFrame"] == -1
     assert hot_a["OutMpegAbs"] == -1
 
-    # Check loop cue: pad B (kind=2, is_loop)
+    # Check non-loop cue: pad B (kind=2, "32 Bars Before Drop")
     hot_b = next(r for r in hot_rows if r["Kind"] == 2)
     assert hot_b["InMsec"] == 2000
-    assert hot_b["OutMsec"] == int(2000.0 + 7500.0)  # 9500
-    assert hot_b["ActiveLoop"] == 0
-    assert hot_b["OutFrame"] == 0
-    assert hot_b["OutMpegFrame"] == 0
-    assert hot_b["OutMpegAbs"] == 0
+    assert hot_b["OutMsec"] == -1
+    assert hot_b["ActiveLoop"] == -1
+    assert hot_b["OutFrame"] == -1
+    assert hot_b["OutMpegFrame"] == -1
+    assert hot_b["OutMpegAbs"] == -1
 
     # All memory cues should have Kind=0
     for row in mem_rows:
@@ -141,18 +141,18 @@ def test_build_cue_rows_creates_hot_and_memory():
 def test_build_cue_rows_skips_skipped_cues():
     from djcues.writer import build_cue_rows
 
-    hot_cues = _make_hot_cues(statuses={"B": "skipped", "H": "skipped"})
-    memory_cues = _make_memory_cues(statuses={"2": "skipped", "8": "skipped"})
+    hot_cues = _make_hot_cues(statuses={"B": "skipped", "F": "skipped"})
+    memory_cues = _make_memory_cues(statuses={"2": "skipped", "6": "skipped"})
 
     hot_rows, mem_rows = build_cue_rows(hot_cues, memory_cues)
 
-    assert len(hot_rows) == 6
-    assert len(mem_rows) == 6
+    assert len(hot_rows) == 4
+    assert len(mem_rows) == 4
 
-    # Kind 2 (B) and Kind 9 (H) should not be present
+    # Kind 2 (B) and Kind 7 (F) should not be present
     hot_kinds = {r["Kind"] for r in hot_rows}
     assert 2 not in hot_kinds
-    assert 9 not in hot_kinds
+    assert 7 not in hot_kinds
 
 
 # ---------------------------------------------------------------------------
@@ -168,5 +168,5 @@ def test_build_cue_rows_handles_auto_status():
 
     hot_rows, mem_rows = build_cue_rows(hot_cues, memory_cues)
 
-    # "auto" should be treated as accepted — all 8 memory rows present
-    assert len(mem_rows) == 8
+    # "auto" should be treated as accepted — all 6 memory rows present
+    assert len(mem_rows) == 6
