@@ -21,13 +21,10 @@ PHRASE_COLORS: dict[str, str] = {
 
 CUE_COLORS: dict[str, str] = {
     "A": "#2ecc71",
-    "B": "#2ecc71",
-    "C": "#f1c40f",
-    "D": "#e74c3c",
-    "E": "#3498db",
-    "F": "#9b59b6",
-    "G": "#00bcd4",
-    "H": "#e67e22",
+    "B": "#f1c40f",
+    "C": "#e74c3c",
+    "D": "#3498db",
+    "E": "#00bcd4",
 }
 
 
@@ -139,10 +136,9 @@ def _render_cue_markers(
 def _render_confidence_bars(confidence: dict[str, float]) -> str:
     """Render per-slot confidence bars."""
     bars = []
-    for pad in "ABCDEFGH":
+    for pad, slot in CUE_SYSTEM_BY_PAD.items():
         conf = confidence.get(pad, 0.0)
-        slot = CUE_SYSTEM_BY_PAD.get(pad)
-        label = html.escape(slot.hot_cue_label) if slot else pad
+        label = html.escape(slot.hot_cue_label)
         color = CUE_COLORS.get(pad, "#aaa")
         pct = conf * 100
         bars.append(

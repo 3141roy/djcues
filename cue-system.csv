@@ -1,7 +1,6 @@
 Label,Hot Cue,Color,Label,Memory Cue
 A,First Beat,Green,1,First Beat
-B,32 Bars Before Drop,Green,2,32 Bars Before Drop
-C,16 Bars Before Drop,Yellow,3,16 Bars Before Drop
-D,Drop,Red,4,Before Drop
-E,Breakdown,Blue,5,Before Breakdown
-F,Outro,Cyan,6,Before Outro
+B,16 Bars Before Vocal,Yellow,2,16 Bars Before Vocal
+C,Drop,Red,3,Before Drop
+D,Breakdown,Blue,4,Before Breakdown
+E,Outro,Cyan,5,Before Outro

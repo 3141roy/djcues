@@ -173,7 +173,7 @@ class ReviewHandler(BaseHTTPRequestHandler):
 
     def _handle_cue_update(self, track_id: str, pad: str) -> None:
         """Update an individual cue, recalculating the memory cue."""
-        from djcues.constants import CUE_SYSTEM
+        from djcues.constants import CUE_SYSTEM_BY_PAD
 
         body = self._read_body()
         new_status = body.get("status")
@@ -193,13 +193,11 @@ class ReviewHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "cue not found"}, status=404)
             return
 
-        pads = list("ABCDEFGH")
-        if pad not in pads:
+        if pad not in CUE_SYSTEM_BY_PAD:
             self._send_json({"error": "invalid pad"}, status=400)
             return
-        slot_idx = pads.index(pad)
-        slot = CUE_SYSTEM[slot_idx]
-        memory_key = str(slot_idx + 1)
+        slot = CUE_SYSTEM_BY_PAD[pad]
+        memory_key = str(list(CUE_SYSTEM_BY_PAD).index(pad) + 1)
 
         memory_cues = tdata.get("memory_cues", {})
         cue_entry = cues[pad]

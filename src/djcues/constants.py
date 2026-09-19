@@ -59,41 +59,37 @@ CUE_SYSTEM: list[CueSlot] = [
         is_loop=False, memory_offset_bars=0,
     ),
     CueSlot(
-        pad="B", kind=2,
-        hot_cue_label="32 Bars Before Drop", memory_cue_label="32 Bars Before Drop",
-        hot_cue_color_table_index=18, hot_cue_color=-1,
-        memory_cue_color_table_index=None, memory_cue_color=4,
-        is_loop=False, memory_offset_bars=0,
-    ),
-    CueSlot(
-        pad="C", kind=3,
-        hot_cue_label="16 Bars Before Drop", memory_cue_label="16 Bars Before Drop",
+        pad="B", kind=3,
+        hot_cue_label="16 Bars Before Vocal", memory_cue_label="16 Bars Before Vocal",
         hot_cue_color_table_index=32, hot_cue_color=-1,
         memory_cue_color_table_index=None, memory_cue_color=3,
         is_loop=False, memory_offset_bars=0,
     ),
     CueSlot(
-        pad="D", kind=5,
+        pad="C", kind=5,
         hot_cue_label="Drop", memory_cue_label="Drop",
         hot_cue_color_table_index=42, hot_cue_color=-1,
         memory_cue_color_table_index=None, memory_cue_color=1,
         is_loop=False, memory_offset_bars=16,
     ),
     CueSlot(
-        pad="E", kind=6,
+        pad="D", kind=6,
         hot_cue_label="Breakdown", memory_cue_label="Breakdown",
         hot_cue_color_table_index=1, hot_cue_color=-1,
         memory_cue_color_table_index=None, memory_cue_color=6,
         is_loop=False, memory_offset_bars=16,
     ),
     CueSlot(
-        pad="F", kind=7,
+        pad="E", kind=7,
         hot_cue_label="Outro", memory_cue_label="Outro",
         hot_cue_color_table_index=9, hot_cue_color=-1,
         memory_cue_color_table_index=None, memory_cue_color=5,
         is_loop=False, memory_offset_bars=16,
     ),
 ]
+# Pad F (DB Kind 2, formerly "32 Bars Before Drop") is intentionally
+# unassigned — free for manual/experimental use (e.g. a vocal-onset
+# acapella-drop cue) outside djcues.
 
 # Quick lookups
 KIND_TO_PAD: dict[int, str] = {s.kind: s.pad for s in CUE_SYSTEM}

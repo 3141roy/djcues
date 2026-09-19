@@ -131,21 +131,20 @@ class CueStrategy:
         confidence["A"] = 1.0
         notes.append("A (First Beat): beat 1")
 
-        # --- D: Drop (first Chorus or Up after ~25% of track) ---
+        # --- C: Drop (first Chorus or Up after ~25% of track) ---
         # The Drop is the first major energy peak after the intro section.
         # Data shows it's typically around 30% into the track (median).
         # Look for the first Chorus (or Up preceded by a Chorus) that's
         # at least 25% into the track. Fallback to first Chorus after
         # the first Up→Chorus cycle.
         choruses = [p for p in phrases if p.label == "Chorus"]
-        drop_candidates = [p for p in phrases if p.label in ("Chorus", "Up")]
         min_drop_ms = track.duration_ms * 0.20  # at least 20% into track
         if choruses:
             # Primary: first Chorus at or after 20% mark
             late_choruses = [c for c in choruses if c.position_ms >= min_drop_ms]
             if late_choruses:
                 drop_phrase = late_choruses[0]
-                notes.append(f"D (Drop): first Chorus after 20% at beat {drop_phrase.beat_start}")
+                notes.append(f"C (Drop): first Chorus after 20% at beat {drop_phrase.beat_start}")
             else:
                 # All choruses are early — check for an Up after the last early Chorus
                 last_early_chorus = choruses[-1]
@@ -155,76 +154,131 @@ class CueStrategy:
                 if ups_after:
                     drop_phrase = ups_after[0]
                     notes.append(
-                        f"D (Drop): Up after early Chorus, beat {drop_phrase.beat_start}"
+                        f"C (Drop): Up after early Chorus, beat {drop_phrase.beat_start}"
                     )
                 else:
                     # Last resort: last Chorus
                     drop_phrase = choruses[-1]
-                    notes.append(f"D (Drop): last Chorus at beat {drop_phrase.beat_start}")
-            positions["D"] = drop_phrase.position_ms
-            confidence["D"] = 0.85
+                    notes.append(f"C (Drop): last Chorus at beat {drop_phrase.beat_start}")
+            positions["C"] = drop_phrase.position_ms
+            confidence["C"] = 0.85
         else:
-            notes.append("D (Drop): no Chorus found — skipped")
-            confidence["D"] = 0.0
+            notes.append("C (Drop): no Chorus found — skipped")
+            confidence["C"] = 0.0
 
-        # --- B/C: N bars before the Drop ---
-        # Steps the offset down (32/16 -> 16/8 -> ... ) if the track's intro
-        # is too short to fit the full lead-in before the first beat.
-        def bars_before_drop(pad: str, bars: int) -> None:
-            if "D" not in positions:
-                confidence[pad] = 0.0
-                notes.append(f"{pad} ({bars} Bars Before Drop): no Drop to anchor from")
-                return
-            drop_ms = positions["D"]
-            offset = bars
-            while offset >= 1 and drop_ms - bg.bars_to_ms(offset) < first_beat_ms:
-                offset //= 2
-            pos_ms = first_beat_ms if offset < 1 else drop_ms - bg.bars_to_ms(offset)
-            positions[pad] = pos_ms
-            confidence[pad] = 0.85 if offset == bars else 0.5
-            if offset == bars:
-                notes.append(f"{pad} ({bars} Bars Before Drop): {bars} bars before Drop")
+        # --- B: 16 Bars Before Vocal ---
+        # Finds the first strong, sustained vocal onset (via PVDI vocal
+        # detection) before the Drop, then backs up 16 bars from it. This is
+        # the entry point for bringing in another track's vocal/acapella so
+        # it lands right as this track's own vocal would — or for starting
+        # this track early enough that its vocal arrives in the pocket.
+        # Falls back to a phrase heuristic if there's no vocal data.
+        vocal_ms: float | None = None
+        vocal_conf = 0.0
+        search_end_ms = positions.get("C", track.duration_ms)
+        if track.vocal_track:
+            frame_ms = 1024 / 22050 * 1000  # ~46.4ms per PVDI frame
+            vt = track.vocal_track
+            min_frames = int(2000 / frame_ms)  # require at least 2s of vocal
+            i = 0
+            while i < len(vt):
+                if vt[i] >= 3:  # strong vocal confidence
+                    start = i
+                    while i < len(vt) and vt[i] > 0:
+                        i += 1
+                    region_ms = start * frame_ms
+                    if i - start >= min_frames and region_ms < search_end_ms:
+                        # Snap to nearest phrase boundary
+                        best_phrase = None
+                        best_dist = float("inf")
+                        for p in phrases:
+                            dist = abs(p.position_ms - region_ms)
+                            if dist < best_dist:
+                                best_dist = dist
+                                best_phrase = p
+                        if best_phrase and best_dist < bg.bars_to_ms(4):
+                            vocal_ms = best_phrase.position_ms
+                            vocal_conf = 0.85
+                            notes.append(
+                                f"B: vocal onset at {region_ms / 1000:.1f}s, "
+                                f"snapped to {best_phrase.label} beat {best_phrase.beat_start}"
+                            )
+                        else:
+                            snap_beat = bg.ms_to_beat(region_ms)
+                            bar_beat = ((snap_beat - 1) // 4) * 4 + 1
+                            vocal_ms = bg.beat_to_ms(bar_beat)
+                            vocal_conf = 0.8
+                            notes.append(f"B: vocal onset at {region_ms / 1000:.1f}s, snapped to beat {bar_beat}")
+                        break
+                else:
+                    i += 1
+
+        if vocal_ms is None:
+            ups_before = [
+                p for p in phrases
+                if p.label in ("Up", "Verse1", "Verse2", "Verse3", "Verse4", "Verse5", "Verse6")
+                and p.position_ms < search_end_ms
+            ]
+            if ups_before:
+                vocal_ms = ups_before[-1].position_ms
+                vocal_conf = 0.5
+                notes.append(f"B: no vocal data, using {ups_before[-1].label} at beat {ups_before[-1].beat_start}")
             else:
-                notes.append(f"{pad} ({bars} Bars Before Drop): only {offset} bars before Drop (short intro)")
+                before_drop = [p for p in phrases if p.position_ms < search_end_ms]
+                if before_drop:
+                    vocal_ms = before_drop[-1].position_ms
+                    vocal_conf = 0.3
+                    notes.append(f"B: no vocal data, fallback to {before_drop[-1].label} at beat {before_drop[-1].beat_start}")
+                else:
+                    notes.append("B: no vocal data and no phrase to anchor from")
 
-        bars_before_drop("B", 32)
-        bars_before_drop("C", 16)
+        if vocal_ms is not None:
+            offset = 16
+            while offset >= 1 and vocal_ms - bg.bars_to_ms(offset) < first_beat_ms:
+                offset //= 2
+            pos_ms = first_beat_ms if offset < 1 else vocal_ms - bg.bars_to_ms(offset)
+            positions["B"] = pos_ms
+            confidence["B"] = vocal_conf if offset == 16 else min(vocal_conf, 0.5)
+            if offset != 16:
+                notes.append(f"B: only {offset} bars before vocal (short lead-in)")
+        else:
+            confidence["B"] = 0.0
 
-        # --- E: Breakdown (first Down/Bridge after Drop) ---
-        if "D" in positions:
-            drop_ms = positions["D"]
+        # --- D: Breakdown (first Down/Bridge after Drop) ---
+        if "C" in positions:
+            drop_ms = positions["C"]
             downs_after = [p for p in phrases if p.label in ("Down", "Bridge") and p.position_ms > drop_ms]
             if downs_after:
                 breakdown_phrase = downs_after[0]
-                positions["E"] = breakdown_phrase.position_ms
-                confidence["E"] = 0.85
-                notes.append(f"E (Breakdown): {breakdown_phrase.label} at beat {breakdown_phrase.beat_start}")
+                positions["D"] = breakdown_phrase.position_ms
+                confidence["D"] = 0.85
+                notes.append(f"D (Breakdown): {breakdown_phrase.label} at beat {breakdown_phrase.beat_start}")
             else:
-                confidence["E"] = 0.0
-                notes.append("E (Breakdown): no Down/Bridge found after Drop")
+                confidence["D"] = 0.0
+                notes.append("D (Breakdown): no Down/Bridge found after Drop")
         else:
             downs = [p for p in phrases if p.label in ("Down", "Bridge")]
             if downs:
-                positions["E"] = downs[0].position_ms
-                confidence["E"] = 0.3
-                notes.append(f"E (Breakdown): no Drop, using first Down at beat {downs[0].beat_start}")
+                positions["D"] = downs[0].position_ms
+                confidence["D"] = 0.3
+                notes.append(f"D (Breakdown): no Drop, using first Down at beat {downs[0].beat_start}")
             else:
-                confidence["E"] = 0.0
-                notes.append("E (Breakdown): no Down/Bridge found")
+                confidence["D"] = 0.0
+                notes.append("D (Breakdown): no Down/Bridge found")
 
-        # --- F: Outro ---
+        # --- E: Outro ---
         outros = [p for p in phrases if p.label == "Outro"]
         if outros:
-            positions["F"] = outros[0].position_ms
-            confidence["F"] = 0.9
-            notes.append(f"F (Outro): Outro at beat {outros[0].beat_start}")
+            positions["E"] = outros[0].position_ms
+            confidence["E"] = 0.9
+            notes.append(f"E (Outro): Outro at beat {outros[0].beat_start}")
         elif phrases:
-            positions["F"] = phrases[-1].position_ms
-            confidence["F"] = 0.4
-            notes.append(f"F (Outro): no Outro found, using last phrase at beat {phrases[-1].beat_start}")
+            positions["E"] = phrases[-1].position_ms
+            confidence["E"] = 0.4
+            notes.append(f"E (Outro): no Outro found, using last phrase at beat {phrases[-1].beat_start}")
         else:
-            confidence["F"] = 0.0
-            notes.append("F (Outro): no phrases at all")
+            confidence["E"] = 0.0
+            notes.append("E (Outro): no phrases at all")
 
         # --- Build CuePoint objects ---
         for slot in CUE_SYSTEM:

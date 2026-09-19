@@ -39,20 +39,30 @@ def high_mood_phrases(beat_grid: BeatGrid) -> list[Phrase]:
     return phrases
 
 
+def _vocal_track_at(bg: BeatGrid, onset_ms: float, run_frames: int = 50) -> list[int]:
+    """Build a synthetic PVDI vocal_track with a strong, sustained onset at onset_ms."""
+    frame_ms = 1024 / 22050 * 1000
+    start_frame = round(onset_ms / frame_ms)
+    return [0] * start_frame + [4] * run_frames
+
+
 @pytest.fixture
 def world_gone_wild(beat_grid: BeatGrid, high_mood_phrases: list[Phrase]) -> Track:
+    bg = beat_grid
+    # Strong vocal onset right at the "Up" phrase (beat 81), well before the Drop.
+    vocal_onset_ms = bg.beat_to_ms(81)
     return Track(
         id=1, title="World Gone Wild", artist="Cyril", bpm=128.0,
         duration_ms=218000.0, analysis_path="", cues=[], phrases=high_mood_phrases,
-        beat_grid=beat_grid,
+        beat_grid=beat_grid, vocal_track=_vocal_track_at(bg, vocal_onset_ms),
     )
 
 
-def test_propose_returns_6_hot_cues_and_6_memory_cues(world_gone_wild: Track):
+def test_propose_returns_5_hot_cues_and_5_memory_cues(world_gone_wild: Track):
     strategy = CueStrategy()
     proposal = strategy.propose(world_gone_wild)
-    assert len(proposal.hot_cues) == 6
-    assert len(proposal.memory_cues) == 6
+    assert len(proposal.hot_cues) == 5
+    assert len(proposal.memory_cues) == 5
 
 
 def test_first_beat_at_beat_1(world_gone_wild: Track):
@@ -68,64 +78,54 @@ def test_drop_at_first_chorus(world_gone_wild: Track):
     """Drop should land at beat 145 (first Chorus)."""
     strategy = CueStrategy()
     proposal = strategy.propose(world_gone_wild)
-    hot_d = next(c for c in proposal.hot_cues if c.kind == 5)
+    hot_c = next(c for c in proposal.hot_cues if c.kind == 5)
     bg = world_gone_wild.beat_grid
-    assert hot_d.position_ms == bg.beat_to_ms(145)
-    assert hot_d.comment == "Drop"
+    assert hot_c.position_ms == bg.beat_to_ms(145)
+    assert hot_c.comment == "Drop"
 
 
-def test_32_bars_before_drop(world_gone_wild: Track):
+def test_16_bars_before_vocal(world_gone_wild: Track):
+    """B should land 16 bars before the detected vocal onset (beat 81)."""
     strategy = CueStrategy()
     proposal = strategy.propose(world_gone_wild)
-    hot_b = next(c for c in proposal.hot_cues if c.kind == 2)
-    hot_d = next(c for c in proposal.hot_cues if c.kind == 5)
+    hot_b = next(c for c in proposal.hot_cues if c.kind == 3)
     bg = world_gone_wild.beat_grid
-    assert hot_b.position_ms == hot_d.position_ms - bg.bars_to_ms(32)
-    assert hot_b.comment == "32 Bars Before Drop"
-
-
-def test_16_bars_before_drop(world_gone_wild: Track):
-    strategy = CueStrategy()
-    proposal = strategy.propose(world_gone_wild)
-    hot_c = next(c for c in proposal.hot_cues if c.kind == 3)
-    hot_d = next(c for c in proposal.hot_cues if c.kind == 5)
-    bg = world_gone_wild.beat_grid
-    assert hot_c.position_ms == hot_d.position_ms - bg.bars_to_ms(16)
-    assert hot_c.comment == "16 Bars Before Drop"
+    assert hot_b.position_ms == bg.beat_to_ms(81) - bg.bars_to_ms(16)
+    assert hot_b.comment == "16 Bars Before Vocal"
 
 
 def test_breakdown_after_drop(world_gone_wild: Track):
     """Breakdown should be the first Down after the Drop."""
     strategy = CueStrategy()
     proposal = strategy.propose(world_gone_wild)
-    hot_e = next(c for c in proposal.hot_cues if c.kind == 6)
+    hot_d = next(c for c in proposal.hot_cues if c.kind == 6)
     bg = world_gone_wild.beat_grid
-    assert hot_e.position_ms == bg.beat_to_ms(209)
+    assert hot_d.position_ms == bg.beat_to_ms(209)
 
 
 def test_outro_at_outro_phrase(world_gone_wild: Track):
     strategy = CueStrategy()
     proposal = strategy.propose(world_gone_wild)
-    hot_f = next(c for c in proposal.hot_cues if c.kind == 7)
+    hot_e = next(c for c in proposal.hot_cues if c.kind == 7)
     bg = world_gone_wild.beat_grid
-    assert hot_f.position_ms == bg.beat_to_ms(433)
-    assert hot_f.comment == "Outro"
+    assert hot_e.position_ms == bg.beat_to_ms(433)
+    assert hot_e.comment == "Outro"
 
 
 def test_memory_cue_offset_16_bars(world_gone_wild: Track):
-    """Memory cues for D/E/F should be 16 bars before their hot cue."""
+    """Memory cue for Drop should be 16 bars before its hot cue."""
     strategy = CueStrategy()
     proposal = strategy.propose(world_gone_wild)
     bg = world_gone_wild.beat_grid
     offset_ms = bg.bars_to_ms(16)
 
-    hot_d = next(c for c in proposal.hot_cues if c.kind == 5)  # Drop
+    hot_drop = next(c for c in proposal.hot_cues if c.kind == 5)
     mem_drop = next(c for c in proposal.memory_cues if c.comment == "Drop")
-    assert mem_drop.position_ms == hot_d.position_ms - offset_ms
+    assert mem_drop.position_ms == hot_drop.position_ms - offset_ms
 
 
 def test_memory_cue_same_position_slots(world_gone_wild: Track):
-    """Memory cues A/B/C should be at the same position as their hot cue."""
+    """Memory cues A/B should be at the same position as their hot cue."""
     strategy = CueStrategy()
     proposal = strategy.propose(world_gone_wild)
 
@@ -133,8 +133,8 @@ def test_memory_cue_same_position_slots(world_gone_wild: Track):
     mem_a = next(c for c in proposal.memory_cues if c.comment == "First Beat")
     assert mem_a.position_ms == hot_a.position_ms
 
-    hot_b = next(c for c in proposal.hot_cues if c.kind == 2)
-    mem_b = next(c for c in proposal.memory_cues if c.comment == "32 Bars Before Drop")
+    hot_b = next(c for c in proposal.hot_cues if c.kind == 3)
+    mem_b = next(c for c in proposal.memory_cues if c.comment == "16 Bars Before Vocal")
     assert mem_b.position_ms == hot_b.position_ms
 
 
@@ -164,8 +164,8 @@ def test_memory_cue_clamp_to_beat_1(beat_grid: BeatGrid):
     assert mem_drop.position_ms >= bg.beat_to_ms(1)
 
 
-def test_bars_before_drop_clamp_to_beat_1(beat_grid: BeatGrid):
-    """If 32/16 bars before Drop would go before beat 1, step the offset down."""
+def test_vocal_lead_in_clamp_to_beat_1(beat_grid: BeatGrid):
+    """If 16 bars before the vocal anchor would go before beat 1, step the offset down."""
     bg = beat_grid
     phrases = [
         Phrase(beat_start=1, beat_end=9, kind=1, label="Intro",
@@ -182,10 +182,8 @@ def test_bars_before_drop_clamp_to_beat_1(beat_grid: BeatGrid):
     )
     strategy = CueStrategy(min_confidence=0.0)
     proposal = strategy.propose(track)
-    hot_b = next(c for c in proposal.hot_cues if c.kind == 2)
-    hot_c = next(c for c in proposal.hot_cues if c.kind == 3)
+    hot_b = next(c for c in proposal.hot_cues if c.kind == 3)
     assert hot_b.position_ms >= bg.beat_to_ms(1)
-    assert hot_c.position_ms >= bg.beat_to_ms(1)
 
 
 def test_configurable_offset():
@@ -213,15 +211,15 @@ def test_configurable_offset():
 
     strategy_8 = CueStrategy(memory_offset_bars=8)
     proposal_8 = strategy_8.propose(track)
-    hot_d = next(c for c in proposal_8.hot_cues if c.kind == 5)
+    hot_drop = next(c for c in proposal_8.hot_cues if c.kind == 5)
     mem_4 = next(c for c in proposal_8.memory_cues if c.comment == "Drop")
-    assert mem_4.position_ms == hot_d.position_ms - bg.bars_to_ms(8)
+    assert mem_4.position_ms == hot_drop.position_ms - bg.bars_to_ms(8)
 
     strategy_16 = CueStrategy(memory_offset_bars=16)
     proposal_16 = strategy_16.propose(track)
-    hot_d16 = next(c for c in proposal_16.hot_cues if c.kind == 5)
+    hot_drop16 = next(c for c in proposal_16.hot_cues if c.kind == 5)
     mem_416 = next(c for c in proposal_16.memory_cues if c.comment == "Drop")
-    assert mem_416.position_ms == hot_d16.position_ms - bg.bars_to_ms(16)
+    assert mem_416.position_ms == hot_drop16.position_ms - bg.bars_to_ms(16)
 
 
 def test_min_confidence_skips_low_confidence_cue(beat_grid: BeatGrid):
@@ -229,49 +227,50 @@ def test_min_confidence_skips_low_confidence_cue(beat_grid: BeatGrid):
     bg = beat_grid
     phrases = [
         Phrase(beat_start=1, beat_end=9, kind=1, label="Intro",
-               position_ms=bg.beat_to_ms(1), duration_ms=bg.bars_to_ms(2)),
-        Phrase(beat_start=9, beat_end=41, kind=5, label="Chorus",
-               position_ms=bg.beat_to_ms(9), duration_ms=bg.bars_to_ms(8)),
-        Phrase(beat_start=41, beat_end=73, kind=6, label="Outro",
-               position_ms=bg.beat_to_ms(41), duration_ms=bg.bars_to_ms(8)),
+               position_ms=bg.beat_to_ms(1), duration_ms=bg.bars_to_ms(8)),
+        Phrase(beat_start=9, beat_end=33, kind=2, label="Up",
+               position_ms=bg.beat_to_ms(9), duration_ms=bg.bars_to_ms(6)),
+        Phrase(beat_start=33, beat_end=200, kind=5, label="Chorus",
+               position_ms=bg.beat_to_ms(33), duration_ms=bg.bars_to_ms(42)),
+        Phrase(beat_start=200, beat_end=232, kind=6, label="Outro",
+               position_ms=bg.beat_to_ms(200), duration_ms=bg.bars_to_ms(8)),
     ]
     track = Track(
-        id=99, title="Early Chorus", artist="Test", bpm=128.0,
-        duration_ms=60000.0, analysis_path="", cues=[], phrases=phrases,
+        id=99, title="No Vocal Data", artist="Test", bpm=128.0,
+        duration_ms=120000.0, analysis_path="", cues=[], phrases=phrases,
         beat_grid=bg,
     )
     strategy = CueStrategy()
     proposal = strategy.propose(track)
-    # B/C step down to a partial offset here (confidence 0.5) — below the
-    # default 0.85 threshold, so they should be omitted entirely.
+    # No vocal_track data — B falls back to the last Up/Verse phrase before
+    # the Drop, capped at confidence 0.5, below the default 0.85 threshold.
     hot_kinds = {c.kind for c in proposal.hot_cues}
-    assert 2 not in hot_kinds  # B
-    assert 3 not in hot_kinds  # C
-    assert proposal.confidence["B"] < 0.85
-    assert proposal.confidence["C"] < 0.85
+    assert 3 not in hot_kinds  # B
+    assert proposal.confidence["B"] == 0.5
 
 
 def test_min_confidence_configurable(beat_grid: BeatGrid):
-    """A lower min_confidence should allow stepped-down cues through."""
+    """A lower min_confidence should allow the fallback vocal-lead-in cue through."""
     bg = beat_grid
     phrases = [
         Phrase(beat_start=1, beat_end=9, kind=1, label="Intro",
-               position_ms=bg.beat_to_ms(1), duration_ms=bg.bars_to_ms(2)),
-        Phrase(beat_start=9, beat_end=41, kind=5, label="Chorus",
-               position_ms=bg.beat_to_ms(9), duration_ms=bg.bars_to_ms(8)),
-        Phrase(beat_start=41, beat_end=73, kind=6, label="Outro",
-               position_ms=bg.beat_to_ms(41), duration_ms=bg.bars_to_ms(8)),
+               position_ms=bg.beat_to_ms(1), duration_ms=bg.bars_to_ms(8)),
+        Phrase(beat_start=9, beat_end=33, kind=2, label="Up",
+               position_ms=bg.beat_to_ms(9), duration_ms=bg.bars_to_ms(6)),
+        Phrase(beat_start=33, beat_end=200, kind=5, label="Chorus",
+               position_ms=bg.beat_to_ms(33), duration_ms=bg.bars_to_ms(42)),
+        Phrase(beat_start=200, beat_end=232, kind=6, label="Outro",
+               position_ms=bg.beat_to_ms(200), duration_ms=bg.bars_to_ms(8)),
     ]
     track = Track(
-        id=99, title="Early Chorus", artist="Test", bpm=128.0,
-        duration_ms=60000.0, analysis_path="", cues=[], phrases=phrases,
+        id=99, title="No Vocal Data", artist="Test", bpm=128.0,
+        duration_ms=120000.0, analysis_path="", cues=[], phrases=phrases,
         beat_grid=bg,
     )
     strategy = CueStrategy(min_confidence=0.5)
     proposal = strategy.propose(track)
     hot_kinds = {c.kind for c in proposal.hot_cues}
-    assert 2 in hot_kinds  # B
-    assert 3 in hot_kinds  # C
+    assert 3 in hot_kinds  # B
 
 
 def test_no_chorus_flags_low_confidence(beat_grid: BeatGrid):
@@ -296,6 +295,6 @@ def test_no_chorus_flags_low_confidence(beat_grid: BeatGrid):
     proposal = strategy.propose(track)
     kinds = {c.kind for c in proposal.hot_cues}
     assert 1 in kinds  # A
-    assert 7 in kinds  # F (Outro)
+    assert 7 in kinds  # E (Outro)
     if 5 in kinds:
-        assert proposal.confidence["D"] < 0.5
+        assert proposal.confidence["C"] < 0.5

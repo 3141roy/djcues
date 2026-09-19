@@ -32,15 +32,15 @@ def test_unknown_kind_returns_unknown():
     assert resolve_phrase_label(mood=1, kind=99) == "Unknown"
 
 
-def test_cue_system_has_6_slots():
-    assert len(CUE_SYSTEM) == 6
+def test_cue_system_has_5_slots():
+    assert len(CUE_SYSTEM) == 5
     pads = [s.pad for s in CUE_SYSTEM]
-    assert pads == ["A", "B", "C", "D", "E", "F"]
+    assert pads == ["A", "B", "C", "D", "E"]
 
 
 def test_cue_system_kind_values():
     kinds = [s.kind for s in CUE_SYSTEM]
-    assert kinds == [1, 2, 3, 5, 6, 7]
+    assert kinds == [1, 3, 5, 6, 7]
 
 
 def test_cue_system_no_loops():
@@ -50,11 +50,11 @@ def test_cue_system_no_loops():
 
 def test_kind_to_pad_mapping():
     assert KIND_TO_PAD[1] == "A"
-    assert KIND_TO_PAD[5] == "D"
-    assert KIND_TO_PAD[7] == "F"
+    assert KIND_TO_PAD[5] == "C"
+    assert KIND_TO_PAD[7] == "E"
 
 
 def test_pad_to_kind_mapping():
     assert PAD_TO_KIND["A"] == 1
-    assert PAD_TO_KIND["D"] == 5
-    assert PAD_TO_KIND["F"] == 7
+    assert PAD_TO_KIND["C"] == 5
+    assert PAD_TO_KIND["E"] == 7

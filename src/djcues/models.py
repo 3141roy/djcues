@@ -102,7 +102,7 @@ class CueSlot:
     """One row from the cue system definition."""
 
     pad: str  # A-H
-    kind: int  # DB Kind value (1,2,3,5,6,7,8,9)
+    kind: int  # DB Kind value (1,3,5,6,7)
     hot_cue_label: str
     memory_cue_label: str
     hot_cue_color_table_index: int
