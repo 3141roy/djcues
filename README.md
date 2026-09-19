@@ -108,9 +108,10 @@ djcues compare "Processed" --all
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--offset` | 16 | Memory cue offset in bars before hot cue |
-| `--loop-bars` | 4 | Loop length in bars for Loop In / Loop Out |
+| `--loop-bars` | 4 | Loop length in bars (unused by the current cue system; reserved for slots that loop) |
+| `--min-confidence` | 0.85 | Minimum placement confidence (0.0-1.0) required to set a cue; lower-confidence cues are skipped |
 
-These are sane defaults for dance tracks, EDM, house, etc. with 8 bar phrases. If you're mixing hip hop, rock, r&b, or pop, or mixing more aggressively, try 8 bar offsets and 2 bar loops. If you're mixing deeper forms of music with more overlap and longer phrasing, 32 bar offsets and 8 bar loops might be best. Use your ear and go with what feels right.
+These are sane defaults for dance tracks, EDM, house, etc. with 8 bar phrases. If you're mixing hip hop, rock, r&b, or pop, or mixing more aggressively, try 8 bar offsets. If you're mixing deeper forms of music with more overlap and longer phrasing, 32 bar offsets might be best. Use your ear and go with what feels right.
 
 ## Project Structure
 

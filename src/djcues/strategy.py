@@ -107,9 +107,11 @@ class CueStrategy:
         self,
         memory_offset_bars: int = 16,
         loop_length_bars: int = 4,
+        min_confidence: float = 0.85,
     ) -> None:
         self.memory_offset_bars = memory_offset_bars
         self.loop_length_bars = loop_length_bars
+        self.min_confidence = min_confidence
 
     def propose(self, track: Track) -> CueProposal:
         """Generate a cue proposal for a track based on its phrase structure."""
@@ -228,6 +230,9 @@ class CueStrategy:
         for slot in CUE_SYSTEM:
             pad = slot.pad
             if pad not in positions:
+                continue
+            if confidence.get(pad, 0.0) < self.min_confidence:
+                notes.append(f"{pad}: confidence {confidence.get(pad, 0.0):.2f} below threshold — skipped")
                 continue
 
             pos_ms = positions[pad]

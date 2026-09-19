@@ -159,7 +159,8 @@ def cli():
 @click.option("--all", "all_tracks", is_flag=True, help="Process all tracks in the playlist.")
 @click.option("--offset", default=16, show_default=True, help="Memory cue offset in bars.")
 @click.option("--loop-bars", default=4, show_default=True, help="Loop length in bars.")
-def propose(playlist_name, track_name, all_tracks, offset, loop_bars):
+@click.option("--min-confidence", default=0.85, show_default=True, help="Minimum confidence to place a cue.")
+def propose(playlist_name, track_name, all_tracks, offset, loop_bars, min_confidence):
     """Propose cue placements for tracks in a playlist."""
     playlist = find_playlist(playlist_name)
     if playlist is None:
@@ -171,7 +172,7 @@ def propose(playlist_name, track_name, all_tracks, offset, loop_bars):
         click.echo(f"Error: no tracks found in playlist '{playlist_name}'.", err=True)
         raise SystemExit(1)
 
-    strategy = CueStrategy(memory_offset_bars=offset, loop_length_bars=loop_bars)
+    strategy = CueStrategy(memory_offset_bars=offset, loop_length_bars=loop_bars, min_confidence=min_confidence)
 
     if all_tracks:
         for t in tracks:
@@ -196,7 +197,8 @@ def propose(playlist_name, track_name, all_tracks, offset, loop_bars):
 @click.option("--all", "all_tracks", is_flag=True, help="Compare all tracks in the playlist.")
 @click.option("--offset", default=16, show_default=True, help="Memory cue offset in bars.")
 @click.option("--loop-bars", default=4, show_default=True, help="Loop length in bars.")
-def compare(playlist_name, track_name, all_tracks, offset, loop_bars):
+@click.option("--min-confidence", default=0.85, show_default=True, help="Minimum confidence to place a cue.")
+def compare(playlist_name, track_name, all_tracks, offset, loop_bars, min_confidence):
     """Compare existing cues with proposed placements."""
     playlist = find_playlist(playlist_name)
     if playlist is None:
@@ -208,7 +210,7 @@ def compare(playlist_name, track_name, all_tracks, offset, loop_bars):
         click.echo(f"Error: no tracks found in playlist '{playlist_name}'.", err=True)
         raise SystemExit(1)
 
-    strategy = CueStrategy(memory_offset_bars=offset, loop_length_bars=loop_bars)
+    strategy = CueStrategy(memory_offset_bars=offset, loop_length_bars=loop_bars, min_confidence=min_confidence)
 
     total_matches = 0
     total_cues = 0
@@ -244,8 +246,9 @@ def compare(playlist_name, track_name, all_tracks, offset, loop_bars):
 @click.option("--compare", "compare_mode", is_flag=True, help="Show existing vs proposed")
 @click.option("--offset", default=16, help="Memory cue offset in bars (default: 16)")
 @click.option("--loop-bars", default=4, help="Loop length in bars (default: 4)")
+@click.option("--min-confidence", default=0.85, help="Minimum confidence to place a cue (default: 0.85)")
 @click.option("--output", "-o", default=None, help="Output file path (default: auto-generated)")
-def viz(playlist, track_name, all_tracks, compare_mode, offset, loop_bars, output):
+def viz(playlist, track_name, all_tracks, compare_mode, offset, loop_bars, min_confidence, output):
     """Generate an HTML timeline visualization."""
     import pathlib
     import webbrowser
@@ -257,7 +260,7 @@ def viz(playlist, track_name, all_tracks, compare_mode, offset, loop_bars, outpu
         raise SystemExit(1)
 
     tracks = load_playlist_tracks(pl.ID)
-    strategy = CueStrategy(memory_offset_bars=offset, loop_length_bars=loop_bars)
+    strategy = CueStrategy(memory_offset_bars=offset, loop_length_bars=loop_bars, min_confidence=min_confidence)
 
     if all_tracks:
         pairs = []
@@ -307,8 +310,9 @@ def viz(playlist, track_name, all_tracks, compare_mode, offset, loop_bars, outpu
 @click.option("--all", "all_tracks", is_flag=True, help="Review all tracks in playlist")
 @click.option("--offset", default=16, help="Memory cue offset in bars (default: 16)")
 @click.option("--loop-bars", default=4, help="Loop length in bars (default: 4)")
+@click.option("--min-confidence", default=0.85, help="Minimum confidence to place a cue (default: 0.85)")
 @click.option("--output", "-o", default=None, help="Output directory (default: current dir)")
-def review(playlist, track_name, all_tracks, offset, loop_bars, output):
+def review(playlist, track_name, all_tracks, offset, loop_bars, min_confidence, output):
     """Launch interactive review session in browser."""
     import pathlib
     import time
@@ -326,7 +330,7 @@ def review(playlist, track_name, all_tracks, offset, loop_bars, output):
         click.echo(f"No tracks found in playlist '{playlist}'.", err=True)
         raise SystemExit(1)
 
-    strategy = CueStrategy(memory_offset_bars=offset, loop_length_bars=loop_bars)
+    strategy = CueStrategy(memory_offset_bars=offset, loop_length_bars=loop_bars, min_confidence=min_confidence)
 
     if all_tracks:
         selected = tracks

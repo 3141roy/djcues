@@ -180,7 +180,7 @@ def test_bars_before_drop_clamp_to_beat_1(beat_grid: BeatGrid):
         duration_ms=60000.0, analysis_path="", cues=[], phrases=phrases,
         beat_grid=bg,
     )
-    strategy = CueStrategy()
+    strategy = CueStrategy(min_confidence=0.0)
     proposal = strategy.propose(track)
     hot_b = next(c for c in proposal.hot_cues if c.kind == 2)
     hot_c = next(c for c in proposal.hot_cues if c.kind == 3)
@@ -222,6 +222,56 @@ def test_configurable_offset():
     hot_d16 = next(c for c in proposal_16.hot_cues if c.kind == 5)
     mem_416 = next(c for c in proposal_16.memory_cues if c.comment == "Drop")
     assert mem_416.position_ms == hot_d16.position_ms - bg.bars_to_ms(16)
+
+
+def test_min_confidence_skips_low_confidence_cue(beat_grid: BeatGrid):
+    """Cues below the confidence threshold should not be placed at all."""
+    bg = beat_grid
+    phrases = [
+        Phrase(beat_start=1, beat_end=9, kind=1, label="Intro",
+               position_ms=bg.beat_to_ms(1), duration_ms=bg.bars_to_ms(2)),
+        Phrase(beat_start=9, beat_end=41, kind=5, label="Chorus",
+               position_ms=bg.beat_to_ms(9), duration_ms=bg.bars_to_ms(8)),
+        Phrase(beat_start=41, beat_end=73, kind=6, label="Outro",
+               position_ms=bg.beat_to_ms(41), duration_ms=bg.bars_to_ms(8)),
+    ]
+    track = Track(
+        id=99, title="Early Chorus", artist="Test", bpm=128.0,
+        duration_ms=60000.0, analysis_path="", cues=[], phrases=phrases,
+        beat_grid=bg,
+    )
+    strategy = CueStrategy()
+    proposal = strategy.propose(track)
+    # B/C step down to a partial offset here (confidence 0.5) — below the
+    # default 0.85 threshold, so they should be omitted entirely.
+    hot_kinds = {c.kind for c in proposal.hot_cues}
+    assert 2 not in hot_kinds  # B
+    assert 3 not in hot_kinds  # C
+    assert proposal.confidence["B"] < 0.85
+    assert proposal.confidence["C"] < 0.85
+
+
+def test_min_confidence_configurable(beat_grid: BeatGrid):
+    """A lower min_confidence should allow stepped-down cues through."""
+    bg = beat_grid
+    phrases = [
+        Phrase(beat_start=1, beat_end=9, kind=1, label="Intro",
+               position_ms=bg.beat_to_ms(1), duration_ms=bg.bars_to_ms(2)),
+        Phrase(beat_start=9, beat_end=41, kind=5, label="Chorus",
+               position_ms=bg.beat_to_ms(9), duration_ms=bg.bars_to_ms(8)),
+        Phrase(beat_start=41, beat_end=73, kind=6, label="Outro",
+               position_ms=bg.beat_to_ms(41), duration_ms=bg.bars_to_ms(8)),
+    ]
+    track = Track(
+        id=99, title="Early Chorus", artist="Test", bpm=128.0,
+        duration_ms=60000.0, analysis_path="", cues=[], phrases=phrases,
+        beat_grid=bg,
+    )
+    strategy = CueStrategy(min_confidence=0.5)
+    proposal = strategy.propose(track)
+    hot_kinds = {c.kind for c in proposal.hot_cues}
+    assert 2 in hot_kinds  # B
+    assert 3 in hot_kinds  # C
 
 
 def test_no_chorus_flags_low_confidence(beat_grid: BeatGrid):
